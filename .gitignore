@@ -1,0 +1,12 @@
+/target
+/.build
+/dist
+/reports
+/audits
+/.tools
+/.DS_Store
+/*.inquiry.html
+/*.inquiry.json
+.env
+.env.*
+!.env.example

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Inquiry open loop direction</title>
+  <desc id="desc">An intentionally open inquiry loop ends in a cited source point.</desc>
+  <circle cx="31" cy="29" r="22" fill="#0A1F1A"/>
+  <path d="M43.8 43.2A22 22 0 1 1 50.5 34" fill="none" stroke="#2DD4A7" stroke-width="6" stroke-linecap="round"/>
+  <path d="M43.8 43.2 54 53.4" fill="none" stroke="#F5C842" stroke-width="6" stroke-linecap="round"/>
+  <path d="M22 24h18M22 32h12" fill="none" stroke="#A5CBBE" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="42" cy="32" r="4" fill="#F5C842"/>
+</svg>

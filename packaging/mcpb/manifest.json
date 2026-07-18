@@ -1,0 +1,48 @@
+{
+  "manifest_version": "0.3",
+  "name": "barnlabs-inquiry",
+  "display_name": "BarnLabs Inquiry",
+  "version": "0.1.0",
+  "description": "Source-grounded public research, deterministic math, opt-in local cited study search, and interactive evidence artifacts for agents.",
+  "long_description": "Inquiry researches public questions while preserving source quality, data periods, units, limitations, and connector failures. It can render cited timelines. Private local-study MCP tools are disabled by default because the MCP host/model may receive returned excerpts; the CLI and macOS app are preferred for device-local study. Its shipped core is model-free; no model integration or weights are bundled.",
+  "author": { "name": "BarnLabs", "url": "https://barnlabs.net" },
+  "repository": { "type": "git", "url": "https://github.com/barnlabs/inquiry.git" },
+  "homepage": "https://barnlabs.net/inquiry",
+  "documentation": "https://github.com/barnlabs/inquiry#readme",
+  "support": "https://github.com/barnlabs/inquiry/issues",
+  "license": "Apache-2.0",
+  "keywords": ["research", "osint", "statistics", "public-health", "engineering", "provenance", "open-data"],
+  "privacy_policies": ["https://github.com/barnlabs/inquiry/blob/main/docs/privacy.md"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/inquiry",
+    "mcp_config": {
+      "command": "${__dirname}/server/inquiry",
+      "args": ["mcp"],
+      "env": {}
+    }
+  },
+  "tools": [
+    { "name": "research", "description": "Research a natural-language question with free public sources and return a provenance-preserving report." },
+    { "name": "capabilities", "description": "Return the reviewed coverage, limitation, outbound-data, and abstention matrix without networking." },
+    { "name": "airport_status", "description": "Retrieve timestamped FAA airport-level traffic-management events; this is not individual flight status or navigation guidance." },
+    { "name": "flight_status_handoff", "description": "Return a no-network handoff to one explicitly selected airline's official flight-status page without claiming a flight state." },
+    { "name": "package_tracking_handoff", "description": "Return a no-status official carrier handoff; the package identifier stays out of the URL unless the caller explicitly opts in." },
+    { "name": "privacy_check", "description": "Inspect a query locally for common sensitive-data patterns and return a redacted candidate without networking." },
+    { "name": "convert", "description": "Perform a deterministic unit conversion and return the formula used." },
+    { "name": "calculate", "description": "Evaluate deterministic mathematical expressions without executing code." },
+    { "name": "statistics", "description": "Calculate descriptive statistics with documented conventions." },
+    { "name": "differentiate", "description": "Estimate derivatives with method and caveat metadata." },
+    { "name": "integrate", "description": "Estimate definite integrals with Simpson's rule." },
+    { "name": "graph", "description": "Create self-contained SVG function graphs and sample tables." },
+    { "name": "formula", "description": "Look up a reviewed formula with variables and caveats." },
+    { "name": "medication_evidence", "description": "Retrieve selected FDA-submitted label sections for one or two exact medication names without producing a clinical verdict." },
+    { "name": "resolve_place", "description": "Resolve place candidates with OSM identifiers, address components, and optional landmark-distance ranking." },
+    { "name": "render_report", "description": "Render Inquiry report JSON as a self-contained interactive HTML file." },
+    { "name": "study_pack", "description": "Export evidence-backed public-research cards as Anki CSV, Quizlet TSV, Markdown, and JSON." },
+    { "name": "study_search", "description": "Explicit opt-in only: return normalized local excerpts and checksums to the MCP host/model from a prebuilt index under reports." },
+    { "name": "study_local_pack", "description": "Explicit opt-in only: export safe cited local-note matches; flagged assessments, secrets, private/restricted records, and embedded instructions are blocked." },
+    { "name": "render_timeline", "description": "Render supplied HTTPS-cited events as a self-contained interactive timeline with CSV export." }
+  ],
+  "compatibility": { "platforms": ["darwin"] }
+}

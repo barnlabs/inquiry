@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" role="img" aria-labelledby="title desc">
+  <title id="title">BarnLabs Inquiry wordmark</title>
+  <desc id="desc">BarnLabs Inquiry paired with the open evidence-frame mark.</desc>
+  <rect width="720" height="160" rx="20" fill="#0a1f1a"/>
+  <g transform="translate(20 20) scale(1.875)">
+    <rect x="4" y="4" width="56" height="56" rx="16" fill="#102a22" stroke="#46695e" stroke-width="2"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M24 14h-7a3 3 0 0 0-3 3v7M40 14h7a3 3 0 0 1 3 3v7M24 50h-7a3 3 0 0 1-3-3v-7M40 50h7a3 3 0 0 0 3-3v-7" stroke="#2dd4a7" stroke-width="4"/>
+      <path d="M22 24h20M22 32h12M22 40h20" stroke="#b8d8cd" stroke-width="4"/>
+    </g>
+    <circle cx="42" cy="32" r="4.5" fill="#f5c842"/>
+  </g>
+  <text x="168" y="60" fill="#2dd4a7" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" letter-spacing="5">BARNLABS</text>
+  <text x="164" y="126" fill="#e8f5ee" font-family="Arial, Helvetica, sans-serif" font-size="74" font-weight="700" letter-spacing="-3">Inquiry</text>
+</svg>

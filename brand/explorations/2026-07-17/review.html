@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inquiry identity directions — release review</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --ink: #071813;
+      --forest: #0a1f1a;
+      --surface: #102a22;
+      --paper: #f5f8f6;
+      --text: #10231d;
+      --muted: #557068;
+      --line: #cad8d3;
+      --teal: #19b98f;
+      --gold: #d9a900;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--text); }
+    main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 72px; }
+    header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: end; border-bottom: 1px solid var(--line); padding-bottom: 28px; }
+    .eyebrow { margin: 0 0 10px; color: #137b60; font: 700 12px/1.2 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 760px; font-size: clamp(34px, 5vw, 64px); line-height: .98; letter-spacing: -.045em; }
+    .date { color: var(--muted); font: 600 13px/1.4 ui-monospace, monospace; }
+    .contract { margin: 28px 0 34px; padding: 18px 20px; background: #e9f1ed; border-left: 4px solid var(--teal); border-radius: 0 12px 12px 0; color: #29443b; line-height: 1.55; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    article { overflow: hidden; background: white; border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 16px 40px rgba(7, 24, 19, .07); }
+    .hero { min-height: 250px; display: grid; place-items: center; background: #e5eee9; }
+    .hero img { width: 176px; height: 176px; }
+    .copy { padding: 22px 22px 24px; }
+    .direction { color: #137b60; font: 700 11px/1.2 ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+    h2 { margin: 7px 0 10px; font-size: 25px; letter-spacing: -.025em; }
+    p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .proof { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+    .swatch { min-height: 106px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; display: flex; align-items: center; justify-content: space-around; }
+    .swatch.dark { background: var(--forest); border-color: #26473c; }
+    .swatch.light { background: #fff; }
+    .swatch img:nth-child(1) { width: 64px; height: 64px; }
+    .swatch img:nth-child(2) { width: 32px; height: 32px; }
+    .swatch img:nth-child(3) { width: 16px; height: 16px; }
+    .mono img { filter: grayscale(1) brightness(.58) contrast(1.35); }
+    .dark.mono img { filter: grayscale(1) brightness(3.4) contrast(1.2); }
+    dl { margin: 18px 0 0; display: grid; grid-template-columns: 64px 1fr; gap: 7px 10px; font-size: 13px; line-height: 1.45; }
+    dt { color: #137b60; font-weight: 750; }
+    dd { margin: 0; color: var(--muted); }
+    .decision { margin-top: 22px; padding: 28px; background: var(--forest); color: #e8f5ee; border-radius: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    .decision h2 { margin-top: 0; }
+    .decision p, .decision li { color: #afc7be; }
+    .decision strong { color: #f5c842; }
+    .decision ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.55; }
+    @media (max-width: 900px) {
+      header, .decision { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      article { display: grid; grid-template-columns: minmax(220px, .8fr) 1.2fr; }
+      .hero { min-height: 100%; }
+    }
+    @media (max-width: 620px) {
+      main { width: min(100% - 24px, 480px); padding-top: 28px; }
+      article { display: block; }
+      .hero { min-height: 220px; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --paper: #071813; --text: #e8f5ee; --muted: #a6bdb5; --line: #28463c; }
+      article { background: #0d241c; box-shadow: none; }
+      .hero { background: #143027; }
+      .contract { background: #112d24; color: #bdd2ca; }
+      .swatch.light { background: #f8fbf9; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <p class="eyebrow">BarnLabs · evidence workbench</p>
+      <h1>Three identity systems built to survive scrutiny.</h1>
+    </div>
+    <div class="date">REVIEW CUT · 2026-07-17 ET</div>
+  </header>
+  <p class="contract"><strong>Artifact contract.</strong> The mark must identify BarnLabs Inquiry in a macOS app, product page, reports, and monochrome contexts; remain recognizable from 16–1024 px; work on light and dark surfaces; avoid “AI magic,” surveillance, certification, and generic trend language; and keep the exact product name paired with BarnLabs where confusion is plausible. Proof is visual at 16, 32, 64, and large sizes plus deterministic raster and contrast checks.</p>
+  <section class="grid" aria-label="Identity directions">
+    <article>
+      <div class="hero"><img src="direction-a-focus-frame.svg" alt="Focus Frame mark"></div>
+      <div class="copy">
+        <div class="direction">Direction A</div>
+        <h2>Focus Frame</h2>
+        <p>A bounded research frame holds three source lines; gold marks the exact evidence currently in focus.</p>
+        <div class="proof">
+          <div class="swatch light"><img src="direction-a-focus-frame.svg" alt=""><img src="direction-a-focus-frame.svg" alt=""><img src="direction-a-focus-frame.svg" alt=""></div>
+          <div class="swatch dark mono"><img src="direction-a-focus-frame.svg" alt=""><img src="direction-a-focus-frame.svg" alt=""><img src="direction-a-focus-frame.svg" alt=""></div>
+        </div>
+        <dl><dt>Strength</dt><dd>Best hierarchy and source-led meaning; clear even without a wordmark.</dd><dt>Risk</dt><dd>Focus corners can drift toward scanner/QR conventions if over-animated.</dd></dl>
+      </div>
+    </article>
+    <article>
+      <div class="hero"><img src="direction-b-source-spine.svg" alt="Source Spine mark"></div>
+      <div class="copy">
+        <div class="direction">Direction B</div>
+        <h2>Source Spine</h2>
+        <p>A stable record spine connects three evidence nodes, emphasizing provenance and the connector ledger.</p>
+        <div class="proof">
+          <div class="swatch light"><img src="direction-b-source-spine.svg" alt=""><img src="direction-b-source-spine.svg" alt=""><img src="direction-b-source-spine.svg" alt=""></div>
+          <div class="swatch dark mono"><img src="direction-b-source-spine.svg" alt=""><img src="direction-b-source-spine.svg" alt=""><img src="direction-b-source-spine.svg" alt=""></div>
+        </div>
+        <dl><dt>Strength</dt><dd>Strong BarnLabs/laboratory fit and balanced geometric silhouette.</dd><dt>Risk</dt><dd>Node graphs are common in OSINT, molecular, and infrastructure brands.</dd></dl>
+      </div>
+    </article>
+    <article>
+      <div class="hero"><img src="direction-c-open-loop.svg" alt="Open Loop mark"></div>
+      <div class="copy">
+        <div class="direction">Direction C</div>
+        <h2>Open Loop</h2>
+        <p>An intentionally incomplete inquiry loop ends at a cited point, making abstention part of the identity.</p>
+        <div class="proof">
+          <div class="swatch light"><img src="direction-c-open-loop.svg" alt=""><img src="direction-c-open-loop.svg" alt=""><img src="direction-c-open-loop.svg" alt=""></div>
+          <div class="swatch dark mono"><img src="direction-c-open-loop.svg" alt=""><img src="direction-c-open-loop.svg" alt=""><img src="direction-c-open-loop.svg" alt=""></div>
+        </div>
+        <dl><dt>Strength</dt><dd>Most immediately recognizable and closest to “ask, then verify.”</dd><dt>Risk</dt><dd>The loop can read as a Q or a search lens and is less distinct from category marks.</dd></dl>
+      </div>
+    </article>
+  </section>
+  <section class="decision">
+    <div><p class="eyebrow">Provisional selection</p><h2>Refine Focus Frame.</h2><p><strong>Why:</strong> it is the only direction whose core meaning is the product’s actual evidence layout rather than the broad search or graph category. Its bounded frame also translates cleanly into a macOS icon tile and a monochrome source stamp.</p></div>
+    <div><p class="eyebrow">Refinement gate</p><ul><li>Reduce the 16 px design to the frame, two evidence lines, and one source point.</li><li>Pair the public wordmark as “BarnLabs Inquiry” to reduce name confusion.</li><li>Verify light, dark, monochrome, color-blind, and mask-safe exports.</li><li>Do not update the downloadable kit or site until those files pass.</li></ul></div>
+  </section>
+</main>
+</body>
+</html>

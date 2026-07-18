@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">BarnLabs Inquiry macOS app icon</title>
+  <desc id="desc">An opaque evidence frame containing source lines and one cited point in focus.</desc>
+  <rect width="64" height="64" fill="#0a1f1a"/>
+  <rect x="5" y="5" width="54" height="54" rx="15" fill="#102a22" stroke="#46695e" stroke-width="2"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 14h-7a3 3 0 0 0-3 3v7M40 14h7a3 3 0 0 1 3 3v7M24 50h-7a3 3 0 0 1-3-3v-7M40 50h7a3 3 0 0 0 3-3v-7" stroke="#2dd4a7" stroke-width="4"/>
+    <path d="M22 24h20M22 32h12M22 40h20" stroke="#b8d8cd" stroke-width="4"/>
+  </g>
+  <circle cx="42" cy="32" r="4.5" fill="#f5c842"/>
+</svg>

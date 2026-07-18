@@ -1,0 +1,75 @@
+{
+  "schema_version": "inquiry.timeline/v1",
+  "title": "Selected U.S. presidential milestones",
+  "subtitle": "A small, source-backed demonstration of Inquiry's interactive timeline format. This is not a complete presidential history.",
+  "notes": [
+    "The selection is intentionally incomplete and demonstrates the artifact format rather than a historical ranking.",
+    "Claims are narrowly phrased to match the cited U.S. Senate, National Archives, and Library of Congress records."
+  ],
+  "events": [
+    {
+      "id": "washington-first-inauguration",
+      "sort_key": 17890430,
+      "date_label": "April 30, 1789",
+      "title": "George Washington takes the first presidential oath",
+      "category": "Inauguration",
+      "summary": "George Washington was sworn in as the first President of the United States at Federal Hall in New York.",
+      "facts": [
+        {
+          "label": "Presidential ordinal",
+          "value": "1st"
+        },
+        {
+          "label": "Location",
+          "value": "Federal Hall, New York, New York"
+        }
+      ],
+      "sources": [
+        {
+          "title": "1st Inaugural Ceremonies",
+          "url": "https://www.inaugural.senate.gov/1st-inaugural-ceremonies/",
+          "publisher": "Joint Congressional Committee on Inaugural Ceremonies",
+          "date": "Accessed 2026-07-16"
+        },
+        {
+          "title": "Washington's Inauguration",
+          "url": "https://www.senate.gov/about/traditions-symbols/washington-inauguration.htm",
+          "publisher": "United States Senate",
+          "date": "Accessed 2026-07-16"
+        }
+      ]
+    },
+    {
+      "id": "lincoln-emancipation-proclamation",
+      "sort_key": 18630101,
+      "date_label": "January 1, 1863",
+      "title": "Abraham Lincoln issues the final Emancipation Proclamation",
+      "category": "Presidential document",
+      "summary": "The final Emancipation Proclamation declared enslaved people in designated areas in rebellion to be free, subject to the document's stated geographic scope and exceptions.",
+      "facts": [
+        {
+          "label": "Document",
+          "value": "Final Emancipation Proclamation"
+        },
+        {
+          "label": "Presidential ordinal",
+          "value": "16th"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Final Emancipation Proclamation, Official Copy",
+          "url": "https://www.loc.gov/item/mal4354200/",
+          "publisher": "Library of Congress",
+          "date": "January 1, 1863"
+        },
+        {
+          "title": "Emancipation Proclamation",
+          "url": "https://visit.archives.gov/galleries/emancipation-proclamation",
+          "publisher": "National Archives Museum",
+          "date": "Accessed 2026-07-16"
+        }
+      ]
+    }
+  ]
+}

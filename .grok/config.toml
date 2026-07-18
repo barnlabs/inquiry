@@ -1,0 +1,4 @@
+[mcp_servers.inquiry]
+command = "./target/release/inquiry"
+args = ["mcp"]
+enabled = true
