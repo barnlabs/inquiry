@@ -2,6 +2,8 @@
 
 The planner profile is a specification, not model weights and not a claim of custom training.
 
+**Loading status:** Inquiry does **not** load, download, cache, or auto-pull neural model weights. The Rust module `src/model.rs` defines **report/domain structs** (facets, findings, sources), not an inference runtime. Optional host models (Codex, Grok, Ollama) are separate processes that may call Inquiry over MCP or CLI; see [agent integrations](agent-integrations.md) and the [Inquiry skill](../skills/inquiry/SKILL.md).
+
 Current decision as of 2026-07-16:
 
 - v0.1 ships no transformer runtime or weights;

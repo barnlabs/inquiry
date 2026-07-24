@@ -22,7 +22,9 @@ cargo build --release --locked
 ./script/test_mcp.sh
 ```
 
-The checked-in Codex and Grok configurations invoke `./target/release/inquiry mcp` from the repository root. They do not contain a key, account, remote endpoint, or private-study opt-in.
+The checked-in Codex and Grok configurations invoke `./target/release/inquiry mcp` from the repository root. The host process **must** use the repository root as its working directory (or replace the command with an absolute path to a built binary). Relative `./target/release/inquiry` fails if the host starts elsewhere or the release binary has not been built. They do not contain a key, account, remote endpoint, or private-study opt-in.
+
+Agent skill guidance lives at [`skills/inquiry/SKILL.md`](../skills/inquiry/SKILL.md) (tool matrix, CLI recipes, model-loading boundaries).
 
 ## Codex
 
