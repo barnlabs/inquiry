@@ -844,8 +844,8 @@ mod tests {
         use crate::permission::{ConnectorDisclosure, ConnectorRisk};
         use crate::sources::PublicSource;
         use async_trait::async_trait;
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         struct GateSource(Arc<AtomicUsize>);
 
@@ -949,7 +949,11 @@ mod tests {
             }),
         )
         .await;
-        assert_eq!(exact.get("isError").and_then(Value::as_bool), Some(false), "{exact}");
+        assert_eq!(
+            exact.get("isError").and_then(Value::as_bool),
+            Some(false),
+            "{exact}"
+        );
         assert!(searches.load(Ordering::SeqCst) > before);
     }
 

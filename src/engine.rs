@@ -44,7 +44,10 @@ pub struct ResearchEngine {
 
 impl ResearchEngine {
     #[cfg(test)]
-    pub fn with_sources_for_test(config: EngineConfig, sources: Vec<Arc<dyn PublicSource>>) -> Self {
+    pub fn with_sources_for_test(
+        config: EngineConfig,
+        sources: Vec<Arc<dyn PublicSource>>,
+    ) -> Self {
         Self { config, sources }
     }
 
@@ -1416,11 +1419,13 @@ mod tests {
             counter.load(Ordering::SeqCst) > 0,
             "eligible automatic approval should reach connector search"
         );
-        assert!(automatic_report
-            .run
-            .connectors_attempted
-            .iter()
-            .any(|name| name.contains("empty-counting")));
+        assert!(
+            automatic_report
+                .run
+                .connectors_attempted
+                .iter()
+                .any(|name| name.contains("empty-counting"))
+        );
         assert_eq!(automatic_report.query, query);
 
         let mut exact = ResearchRequest::new(query);
