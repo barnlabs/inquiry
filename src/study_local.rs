@@ -1,3 +1,4 @@
+use crate::safe_dir::SafeDir;
 use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Utc};
 use lopdf::Document;
@@ -650,8 +651,16 @@ pub fn read_index(path: impl AsRef<Path>) -> Result<LocalStudyIndex> {
     if !same_file(&metadata, &after) || after.len() != metadata.len() {
         bail!("study index changed while it was being read");
     }
+    index_from_bytes(&bytes)
+}
+
+/// Parse and validate an already-read study index (for handle-relative MCP reads).
+pub fn index_from_bytes(bytes: &[u8]) -> Result<LocalStudyIndex> {
+    if bytes.len() > 64 * 1024 * 1024 {
+        bail!("study index exceeds the 64 MiB read limit");
+    }
     let index: LocalStudyIndex =
-        serde_json::from_slice(&bytes).context("study index is not valid Inquiry JSON")?;
+        serde_json::from_slice(bytes).context("study index is not valid Inquiry JSON")?;
     validate_index(&index)?;
     Ok(index)
 }
@@ -750,6 +759,98 @@ pub fn write_recall_pack(
         quizlet_tsv,
         markdown,
         json,
+    })
+}
+
+/// Write local-recall artifacts via handle-relative creates under a held directory FD.
+pub fn write_recall_pack_in_dir(
+    pack: &LocalRecallPack,
+    directory: &SafeDir,
+    prefix: &str,
+) -> Result<LocalRecallFiles> {
+    let prefix = safe_prefix(prefix)?;
+    let mut anki = String::from(
+        "#separator:Comma\n#html:false\n#columns:Front,Back,Source,SourceExcerpt,SourceExcerptHash,DocumentHash,CardBackHash,Tags\n",
+    );
+    let mut quizlet = String::new();
+    let mut markdown_text = format!(
+        "# InquiryStudy local recall pack\n\n**Query:** {}\n\n",
+        markdown_escape(&pack.query)
+    );
+    for guidance in &pack.guidance {
+        markdown_text.push_str(&format!("- {}\n", markdown_escape(guidance)));
+    }
+    markdown_text.push_str("\n## Cards\n\n");
+    for (index, card) in pack.cards.iter().enumerate() {
+        anki.push_str(
+            &[
+                card.front.as_str(),
+                card.back.as_str(),
+                card.source_reference.as_str(),
+                card.source_excerpt.as_str(),
+                card.source_excerpt_hash.as_str(),
+                card.document_hash.as_str(),
+                card.card_back_hash.as_str(),
+                &card.tags.join(" "),
+            ]
+            .into_iter()
+            .map(csv_cell)
+            .collect::<Vec<_>>()
+            .join(","),
+        );
+        anki.push('\n');
+        quizlet.push_str(&tsv_cell(&card.front));
+        quizlet.push('\t');
+        quizlet.push_str(&tsv_cell(&format!(
+            "{} Source: {} Normalized source excerpt: {} Excerpt checksum: {} Document checksum: {}",
+            card.back,
+            card.source_reference,
+            card.source_excerpt,
+            card.source_excerpt_hash,
+            card.document_hash
+        )));
+        quizlet.push('\n');
+        markdown_text.push_str(&format!(
+            "### {}. {}\n\n{}\n\nNormalized source excerpt: {}\n\nSource: `{}`  \nExcerpt SHA-256 checksum: `{}`  \nDocument SHA-256 checksum: `{}`  \nCard-back SHA-256 checksum: `{}`\n\n",
+            index + 1,
+            markdown_escape(&card.front),
+            markdown_escape(&card.back),
+            markdown_escape(&card.source_excerpt),
+            markdown_escape(&card.source_reference),
+            card.source_excerpt_hash,
+            card.document_hash,
+            card.card_back_hash
+        ));
+    }
+    let names = [
+        format!("{prefix}-anki.csv"),
+        format!("{prefix}-quizlet.tsv"),
+        format!("{prefix}.md"),
+        format!("{prefix}.json"),
+    ];
+    let contents = [
+        anki.into_bytes(),
+        quizlet.into_bytes(),
+        markdown_text.into_bytes(),
+        serde_json::to_vec_pretty(pack)?,
+    ];
+    let mut created = Vec::new();
+    for (name, content) in names.iter().zip(contents.iter()) {
+        match directory.write_new(name, content) {
+            Ok(path) => created.push(path),
+            Err(error) => {
+                for path in &created {
+                    let _ = fs::remove_file(path);
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok(LocalRecallFiles {
+        anki_csv: created[0].clone(),
+        quizlet_tsv: created[1].clone(),
+        markdown: created[2].clone(),
+        json: created[3].clone(),
     })
 }
 

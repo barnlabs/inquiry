@@ -10,6 +10,7 @@ use crate::package::{self, PackageCarrier};
 use crate::place;
 use crate::privacy;
 use crate::report;
+use crate::safe_dir::SafeDir;
 use crate::study;
 use crate::study_local;
 use crate::timeline;
@@ -428,8 +429,11 @@ async fn execute_tool(
                 args.get("samples").and_then(Value::as_u64).unwrap_or(401) as usize,
             )
             .map_err(internal)?;
-            let path = safe_report_path(required_str(&args, "filename")?)?;
-            let written = math::write_graph_html(&graph, path).map_err(internal)?;
+            let filename = validate_html_filename(required_str(&args, "filename")?)?;
+            let reports = open_mcp_reports_dir()?;
+            let written = reports
+                .write_new(filename, math::render_graph_html(&graph).as_bytes())
+                .map_err(internal)?;
             json!({"graph":graph,"path":written,"media_type":"text/html"})
         }
         "medication_evidence" => {
@@ -486,9 +490,12 @@ async fn execute_tool(
                     .ok_or_else(|| invalid("report is required"))?,
             )
             .map_err(internal)?;
-            let filename = required_str(&args, "filename")?;
-            let path = safe_report_path(filename)?;
-            let written = report::write_html(&parsed, path).map_err(internal)?;
+            report::validate_report(&parsed).map_err(internal)?;
+            let filename = validate_html_filename(required_str(&args, "filename")?)?;
+            let reports = open_mcp_reports_dir()?;
+            let written = reports
+                .write_new(filename, report::render_html(&parsed).as_bytes())
+                .map_err(internal)?;
             json!({"path":written,"media_type":"text/html"})
         }
         "study_pack" => {
@@ -499,14 +506,19 @@ async fn execute_tool(
             )
             .map_err(internal)?;
             let pack = study::build(&parsed).map_err(internal)?;
-            let reports = safe_mcp_reports_root()?;
-            let files = study::write(&pack, &reports, required_str(&args, "filename_base")?)
+            let reports = open_mcp_reports_dir()?;
+            let files = study::write_in_dir(&pack, &reports, required_str(&args, "filename_base")?)
                 .map_err(internal)?;
             json!({"pack":pack,"files":files})
         }
         "study_search" => {
-            let index_path = safe_study_index_path(required_str(&args, "index_filename")?)?;
-            let index = study_local::read_index(index_path).map_err(internal)?;
+            let index_filename =
+                validate_study_index_filename(required_str(&args, "index_filename")?)?;
+            let reports = open_mcp_reports_dir()?;
+            let (bytes, _) = reports
+                .read_file(index_filename, 64 * 1024 * 1024)
+                .map_err(internal)?;
+            let index = study_local::index_from_bytes(&bytes).map_err(internal)?;
             let result = study_local::search(
                 &index,
                 bounded_str(&args, "query", 1_000)?,
@@ -519,8 +531,13 @@ async fn execute_tool(
             serde_json::to_value(result).map_err(internal)?
         }
         "study_local_pack" => {
-            let index_path = safe_study_index_path(required_str(&args, "index_filename")?)?;
-            let index = study_local::read_index(index_path).map_err(internal)?;
+            let index_filename =
+                validate_study_index_filename(required_str(&args, "index_filename")?)?;
+            let reports = open_mcp_reports_dir()?;
+            let (bytes, _) = reports
+                .read_file(index_filename, 64 * 1024 * 1024)
+                .map_err(internal)?;
+            let index = study_local::index_from_bytes(&bytes).map_err(internal)?;
             let result = study_local::search(
                 &index,
                 bounded_str(&args, "query", 1_000)?,
@@ -531,8 +548,7 @@ async fn execute_tool(
             )
             .map_err(internal)?;
             let pack = study_local::build_recall_pack(&result).map_err(internal)?;
-            let reports = safe_mcp_reports_root()?;
-            let files = study_local::write_recall_pack(
+            let files = study_local::write_recall_pack_in_dir(
                 &pack,
                 &reports,
                 required_str(&args, "filename_base")?,
@@ -547,8 +563,12 @@ async fn execute_tool(
                     .ok_or_else(|| invalid("timeline is required"))?,
             )
             .map_err(internal)?;
-            let path = safe_report_path(required_str(&args, "filename")?)?;
-            let written = timeline::write_html(&artifact, path).map_err(internal)?;
+            let filename = validate_html_filename(required_str(&args, "filename")?)?;
+            let html = timeline::render_html(&artifact).map_err(internal)?;
+            let reports = open_mcp_reports_dir()?;
+            let written = reports
+                .write_new(filename, html.as_bytes())
+                .map_err(internal)?;
             json!({
                 "path": written,
                 "media_type": "text/html",
@@ -561,13 +581,12 @@ async fn execute_tool(
     Ok((name.to_string(), value))
 }
 
-fn safe_report_path(filename: &str) -> std::result::Result<std::path::PathBuf, (i64, String)> {
+fn validate_html_filename(filename: &str) -> std::result::Result<&str, (i64, String)> {
     let path = std::path::Path::new(filename);
-    let is_single_component = path.components().count() == 1;
     let valid_chars = filename
         .chars()
         .all(|character| character.is_ascii_alphanumeric() || ".-_".contains(character));
-    if !is_single_component
+    if path.components().count() != 1
         || !valid_chars
         || filename.starts_with('.')
         || !filename.ends_with(".html")
@@ -576,10 +595,10 @@ fn safe_report_path(filename: &str) -> std::result::Result<std::path::PathBuf, (
             "filename must be a simple .html filename without directories",
         ));
     }
-    Ok(safe_mcp_reports_root()?.join(filename))
+    Ok(filename)
 }
 
-fn safe_study_index_path(filename: &str) -> std::result::Result<std::path::PathBuf, (i64, String)> {
+fn validate_study_index_filename(filename: &str) -> std::result::Result<&str, (i64, String)> {
     let path = std::path::Path::new(filename);
     let valid_chars = filename
         .chars()
@@ -593,7 +612,7 @@ fn safe_study_index_path(filename: &str) -> std::result::Result<std::path::PathB
             "index_filename must be a simple *-study-index.json filename without directories",
         ));
     }
-    Ok(safe_mcp_reports_root()?.join(filename))
+    Ok(filename)
 }
 
 fn local_study_mcp_enabled() -> bool {
@@ -602,41 +621,28 @@ fn local_study_mcp_enabled() -> bool {
         .is_some_and(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true"))
 }
 
-fn safe_mcp_reports_root() -> std::result::Result<std::path::PathBuf, (i64, String)> {
+/// Open the MCP `reports/` root with a retained directory FD (`O_DIRECTORY|O_NOFOLLOW`).
+fn open_mcp_reports_dir() -> std::result::Result<SafeDir, (i64, String)> {
     let current = std::env::current_dir()
         .map_err(internal)?
         .canonicalize()
         .map_err(internal)?;
-    safe_reports_root_under(&current)
+    open_reports_dir_under(&current)
 }
 
-fn safe_reports_root_under(
+fn open_reports_dir_under(
     current: &std::path::Path,
-) -> std::result::Result<std::path::PathBuf, (i64, String)> {
-    let reports = current.join("reports");
-    if reports.exists() {
-        let metadata = std::fs::symlink_metadata(&reports).map_err(internal)?;
-        if metadata.file_type().is_symlink() || !metadata.is_dir() {
-            return Err(invalid(
-                "the MCP reports root must be a real directory, not a symlink or special file",
-            ));
+) -> std::result::Result<SafeDir, (i64, String)> {
+    // Confinement is the retained dirfd (`O_DIRECTORY|O_NOFOLLOW`) plus openat
+    // child creates/opens. Display paths are best-effort labels only.
+    SafeDir::open_or_create_under(current, "reports").map_err(|error| {
+        let message = error.to_string();
+        if message.contains("real directory") || message.contains("symbolic link") {
+            invalid(message)
+        } else {
+            internal(error)
         }
-    } else {
-        std::fs::create_dir(&reports).map_err(internal)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&reports, std::fs::Permissions::from_mode(0o700))
-                .map_err(internal)?;
-        }
-    }
-    let canonical = reports.canonicalize().map_err(internal)?;
-    if canonical.parent() != Some(current) {
-        return Err(invalid(
-            "the MCP reports root escaped its working directory",
-        ));
-    }
-    Ok(canonical)
+    })
 }
 
 fn required_str<'a>(value: &'a Value, field: &str) -> std::result::Result<&'a str, (i64, String)> {
@@ -686,22 +692,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mcp_report_paths_stay_in_reports_directory() {
-        assert!(
-            safe_report_path("dossier.html")
-                .unwrap()
-                .ends_with("reports/dossier.html")
+    fn mcp_report_filenames_reject_path_escape() {
+        assert_eq!(
+            validate_html_filename("dossier.html").unwrap(),
+            "dossier.html"
         );
-        assert!(safe_report_path("../../escape.html").is_err());
-        assert!(safe_report_path("/tmp/escape.html").is_err());
-        assert!(safe_report_path(".hidden.html").is_err());
-        assert!(
-            safe_study_index_path("biology-study-index.json")
-                .unwrap()
-                .ends_with("reports/biology-study-index.json")
+        assert!(validate_html_filename("../../escape.html").is_err());
+        assert!(validate_html_filename("/tmp/escape.html").is_err());
+        assert!(validate_html_filename(".hidden.html").is_err());
+        assert_eq!(
+            validate_study_index_filename("biology-study-index.json").unwrap(),
+            "biology-study-index.json"
         );
-        assert!(safe_study_index_path("../../biology-study-index.json").is_err());
-        assert!(safe_study_index_path("/tmp/biology-study-index.json").is_err());
+        assert!(validate_study_index_filename("../../biology-study-index.json").is_err());
+        assert!(validate_study_index_filename("/tmp/biology-study-index.json").is_err());
     }
 
     #[cfg(unix)]
@@ -710,7 +714,35 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
         std::os::unix::fs::symlink(outside.path(), directory.path().join("reports")).unwrap();
-        assert!(safe_reports_root_under(directory.path()).is_err());
+        assert!(open_reports_dir_under(directory.path()).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn mcp_reports_write_stays_confined_after_root_swap() {
+        let directory = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let reports = open_reports_dir_under(directory.path()).unwrap();
+        // Rename the real directory aside and plant a symlink at `reports`.
+        let real = directory.path().join("reports.real");
+        std::fs::rename(directory.path().join("reports"), &real).unwrap();
+        std::os::unix::fs::symlink(outside.path(), directory.path().join("reports")).unwrap();
+        let written = reports
+            .write_new("dossier.html", b"<html>confined</html>")
+            .unwrap();
+        assert!(
+            written.ends_with("reports/dossier.html")
+                || written.ends_with("reports.real/dossier.html")
+        );
+        assert!(
+            !outside.path().join("dossier.html").exists(),
+            "MCP report write must not follow a post-open reports/ symlink"
+        );
+        assert!(real.join("dossier.html").exists());
+        let (bytes, _) = reports.read_file("dossier.html", 1024).unwrap();
+        assert_eq!(bytes, b"<html>confined</html>");
+        // A fresh open against the swapped path must fail.
+        assert!(open_reports_dir_under(directory.path()).is_err());
     }
 
     #[tokio::test]

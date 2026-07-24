@@ -19,6 +19,7 @@ pub mod policy;
 pub mod privacy;
 pub mod reference;
 pub mod report;
+pub mod safe_dir;
 pub mod sources;
 pub mod study;
 pub mod study_local;
