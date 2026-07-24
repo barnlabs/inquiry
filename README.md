@@ -55,7 +55,9 @@ cargo run -- research \
 Or use the tools without a network request:
 
 ```bash
-cargo run -- research "How is dengue transmitted?" --offline --open
+# Offline research uses the curated catalog only. Prefer multi-facet phrasings
+# (short single-connector questions may honestly abstain until live mode).
+cargo run -- research "dengue disease transmission safety statistics" --offline --open
 cargo run -- convert 12 mi km
 cargo run -- calculate 'sqrt(2)^2 + sin(pi/2)'
 cargo run -- graph 'sin(x)' --from -6.283 --to 6.283 --open

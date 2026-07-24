@@ -22,7 +22,9 @@ cargo build --release --locked
 ./script/test_mcp.sh
 ```
 
-The checked-in Codex and Grok configurations invoke `./target/release/inquiry mcp` from the repository root. They do not contain a key, account, remote endpoint, or private-study opt-in.
+The checked-in Codex and Grok configurations invoke `./target/release/inquiry mcp` from the repository root. The host process **must** use the repository root as its working directory (or replace the command with an absolute path to a built binary). Relative `./target/release/inquiry` fails if the host starts elsewhere or the release binary has not been built. They do not contain a key, account, remote endpoint, or private-study opt-in.
+
+Agent skill guidance lives at [`skills/inquiry/SKILL.md`](../skills/inquiry/SKILL.md) (tool matrix, CLI recipes, model-loading boundaries).
 
 ## Codex
 
@@ -81,14 +83,18 @@ Choose a genuinely local model, confirm it is present with `ollama list`, and in
 
 ## Compatibility proof
 
-`./script/test_mcp.sh` verifies:
+`./script/test_mcp.sh` verifies (exact script assertions, not a full matrix):
 
-- initialize followed by `notifications/initialized`;
-- supported MCP version negotiation;
-- pre-initialization calls fail;
-- agent-facing evidence/privacy instructions;
-- tool titles, safety annotations, and output schemas;
-- deterministic calculation output;
-- offline isolation, including a failed FAA airport call without network leakage;
-- capability-matrix, official flight/package handoff, identifier masking, and no-status-claim behavior;
-- private-study tools absent by default and present only with explicit opt-in.
+- initialize with protocol version `2025-11-25` followed by `notifications/initialized`;
+- pre-initialization `tools/list` fails;
+- agent-facing instructions include “Model text is never evidence”;
+- safety annotations (`readOnlyHint` / `openWorldHint`) and object `outputSchema` markers;
+- deterministic `calculate` output;
+- offline isolation for place/airport open-world tools without network leakage;
+- capability matrix `universal_coverage_claimed: false`;
+- flight/package handoffs with identifier masking and `status_retrieved: false`;
+- offline `research` returns an `inquiry.report/v1` for the multi-facet dengue catalog query;
+- live (network-on) `research` without plan approval returns the public-connector permission error;
+- private-study tools absent by default and present only with `INQUIRY_ENABLE_LOCAL_STUDY_MCP=1`.
+
+Live multi-connector research from MCP requires tool arguments `automatic_public_web` and/or `approved_plan_id` (see the skill). Host tool approval alone is not plan approval. If you use `redact_sensitive`, the plan fingerprint is computed **after** redaction: run `privacy_check`, plan the **redacted** query string, then call `research` with the original query, `redact_sensitive: true`, and that redacted plan’s `approved_plan_id`.

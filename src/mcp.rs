@@ -168,7 +168,7 @@ async fn read_bounded_line<R: AsyncBufRead + Unpin>(
 
 fn tool_list() -> Value {
     let mut value = json!({"tools":[
-        {"name":"research","description":"Research a natural-language question using free public sources and return a provenance-preserving report. Sensitive live requests fail closed unless the local privacy check can safely redact them; an MCP caller cannot self-authorize sending sensitive originals.","inputSchema":{"type":"object","properties":{"query":{"type":"string","minLength":3,"maxLength":4000},"result_limit":{"type":"integer","minimum":1,"maximum":25},"redact_sensitive":{"type":"boolean","default":false}},"required":["query"],"additionalProperties":false}},
+        {"name":"research","description":"Research a natural-language question and return a provenance-preserving report. Offline catalog results require spawning the server as `inquiry mcp --offline` (there is no research.offline argument). Live connector research requires automatic_public_web for eligible public plans or approved_plan_id from a prior CLI/host plan inspection; an MCP caller still cannot self-authorize sensitive originals.","inputSchema":{"type":"object","properties":{"query":{"type":"string","minLength":3,"maxLength":4000},"result_limit":{"type":"integer","minimum":1,"maximum":25},"redact_sensitive":{"type":"boolean","default":false},"automatic_public_web":{"type":"boolean","default":false,"description":"Approve only engine-marked automatic-eligible public connector plans for this call. Sensitive and ineligible plans still fail closed."},"approved_plan_id":{"type":"string","minLength":8,"maxLength":200,"description":"Exact plan_id fingerprint from a reviewed execution plan for this query. Prefer CLI `inquiry plan` when the host cannot display the plan."}},"required":["query"],"additionalProperties":false}},
         {"name":"capabilities","description":"Return Inquiry's reviewed capability, coverage, limitation, and abstention matrix. Makes no network call.","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
         {"name":"airport_status","description":"Retrieve one three-letter U.S. airport's current traffic-management events from the FAA National Airspace System status feed. This is airport-level information, not individual flight status or navigation guidance.","inputSchema":{"type":"object","properties":{"airport":{"type":"string","pattern":"^[A-Za-z]{3}$"}},"required":["airport"],"additionalProperties":false}},
         {"name":"flight_status_handoff","description":"Normalize one exact carrier flight identifier and return the official airline status page without contacting the airline or claiming a flight state.","inputSchema":{"type":"object","properties":{"carrier":{"type":"string","enum":["american","delta","united","southwest","alaska","jetblue"]},"flight_identifier":{"type":"string","minLength":1,"maxLength":10},"date":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}},"required":["carrier","flight_identifier"],"additionalProperties":false}},
@@ -316,7 +316,21 @@ async fn execute_tool(
                 .get("redact_sensitive")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
+            // MCP never accepts confirm_sensitive_network; sensitive originals stay fail-closed.
             request.confirm_sensitive_network = false;
+            request.automatic_public_web = args
+                .get("automatic_public_web")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            if let Some(plan_id) = args.get("approved_plan_id").and_then(Value::as_str) {
+                let plan_id = plan_id.trim();
+                if plan_id.chars().count() < 8 || plan_id.chars().count() > 200 {
+                    return Err(invalid(
+                        "approved_plan_id must be 8 to 200 characters when provided",
+                    ));
+                }
+                request.approved_plan_id = Some(plan_id.to_string());
+            }
             serde_json::to_value(engine.research(request).await.map_err(internal)?)
                 .map_err(internal)?
         }
@@ -760,6 +774,183 @@ mod tests {
         .await;
         assert_eq!(result.get("isError").and_then(Value::as_bool), Some(true));
         assert!(result.get("structuredContent").is_none());
+    }
+
+    #[test]
+    fn research_tool_schema_advertises_plan_approval_fields() {
+        let listed = tool_list();
+        let research = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|tool| tool["name"] == "research")
+            .expect("research tool");
+        let properties = &research["inputSchema"]["properties"];
+        assert!(properties.get("automatic_public_web").is_some());
+        assert!(properties.get("approved_plan_id").is_some());
+        assert!(properties.get("offline").is_none());
+        assert!(properties.get("confirm_sensitive_network").is_none());
+    }
+
+    #[tokio::test]
+    async fn mcp_research_plan_gate_and_forced_sensitive_confirm() {
+        let engine = ResearchEngine::new(EngineConfig {
+            network: true,
+            searxng_url: None,
+        })
+        .unwrap();
+        let denied = call_tool(
+            &engine,
+            true,
+            json!({"name":"research","arguments":{"query":"Compare GDP and population for Kenya"}}),
+        )
+        .await;
+        assert_eq!(denied.get("isError").and_then(Value::as_bool), Some(true));
+        let denied_text = denied["content"][0]["text"].as_str().unwrap_or("");
+        assert!(
+            denied_text.contains("public connector permission is required"),
+            "{denied_text}"
+        );
+
+        // Unknown confirm_sensitive_network must not authorize; only plan fields do.
+        // (Schema marks additionalProperties false for hosts; runtime still ignores the key.)
+        let still_denied = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query":"Compare GDP and population for Kenya",
+                    "confirm_sensitive_network": true
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            still_denied.get("isError").and_then(Value::as_bool),
+            Some(true),
+            "{still_denied}"
+        );
+        let still_text = still_denied["content"][0]["text"].as_str().unwrap_or("");
+        assert!(
+            still_text.contains("public connector permission is required"),
+            "{still_text}"
+        );
+    }
+
+    #[tokio::test]
+    async fn mcp_research_allow_path_wires_plan_fields_through_call_tool() {
+        use crate::model::{ConnectorAudit, ResearchPlan, SourceOutput};
+        use crate::permission::{ConnectorDisclosure, ConnectorRisk};
+        use crate::sources::PublicSource;
+        use async_trait::async_trait;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct GateSource(Arc<AtomicUsize>);
+
+        #[async_trait]
+        impl PublicSource for GateSource {
+            fn name(&self) -> &'static str {
+                "mcp-gate-test-source"
+            }
+            fn supports(&self, _: &ResearchPlan) -> bool {
+                true
+            }
+            fn disclosures(&self, _: &ResearchPlan) -> Vec<ConnectorDisclosure> {
+                vec![ConnectorDisclosure {
+                    id: "mcp-gate-test".into(),
+                    service: "MCP gate test".into(),
+                    destinations: vec!["example.test".into()],
+                    outbound_data: "the minimized public research query".into(),
+                    purpose: "prove MCP research plan approval wiring".into(),
+                    risk: ConnectorRisk::PublicQuery,
+                    automatic_eligible: true,
+                }]
+            }
+            async fn search(&self, _: &ResearchPlan, _: usize) -> anyhow::Result<SourceOutput> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Ok(SourceOutput {
+                    connector: self.name().into(),
+                    findings: Vec::new(),
+                    metrics: Vec::new(),
+                    sources: Vec::new(),
+                    warnings: Vec::new(),
+                    audit: ConnectorAudit {
+                        attempted: vec![self.name().into()],
+                        succeeded: Vec::new(),
+                        errors: Vec::new(),
+                    },
+                })
+            }
+        }
+
+        let searches = Arc::new(AtomicUsize::new(0));
+        let engine = ResearchEngine::with_sources_for_test(
+            EngineConfig {
+                network: true,
+                searxng_url: None,
+            },
+            vec![Arc::new(GateSource(searches.clone()))],
+        );
+        let query = "Compare GDP and population for Kenya";
+
+        let wrong = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query": query,
+                    "approved_plan_id": "sha256:definitely-wrong-plan-id-value"
+                }
+            }),
+        )
+        .await;
+        assert_eq!(wrong.get("isError").and_then(Value::as_bool), Some(true));
+        assert_eq!(searches.load(Ordering::SeqCst), 0);
+
+        let automatic = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query": query,
+                    "automatic_public_web": true
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            automatic.get("isError").and_then(Value::as_bool),
+            Some(false),
+            "{automatic}"
+        );
+        assert!(searches.load(Ordering::SeqCst) > 0);
+        assert_eq!(
+            automatic["structuredContent"]["schema_version"].as_str(),
+            Some("inquiry.report/v1")
+        );
+
+        let plan_id = engine
+            .execution_plan(&crate::model::ResearchRequest::new(query))
+            .plan_id;
+        let before = searches.load(Ordering::SeqCst);
+        let exact = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query": query,
+                    "approved_plan_id": plan_id
+                }
+            }),
+        )
+        .await;
+        assert_eq!(exact.get("isError").and_then(Value::as_bool), Some(false), "{exact}");
+        assert!(searches.load(Ordering::SeqCst) > before);
     }
 
     #[tokio::test]

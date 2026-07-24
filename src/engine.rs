@@ -43,6 +43,11 @@ pub struct ResearchEngine {
 }
 
 impl ResearchEngine {
+    #[cfg(test)]
+    pub fn with_sources_for_test(config: EngineConfig, sources: Vec<Arc<dyn PublicSource>>) -> Self {
+        Self { config, sources }
+    }
+
     pub fn new(config: EngineConfig) -> Result<Self> {
         let client = default_client()?;
         let mut sources: Vec<Arc<dyn PublicSource>> = vec![
@@ -1352,5 +1357,163 @@ mod tests {
         assert!(!threads.run.network_used);
         assert!(threads.run.connectors_attempted.is_empty());
         assert_eq!(counter.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn networked_public_research_requires_plan_approval() {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let engine = ResearchEngine {
+            config: EngineConfig {
+                network: true,
+                searxng_url: None,
+            },
+            sources: vec![Arc::new(EmptyCountingSource(counter.clone()))],
+        };
+        let query = "Compare GDP and population for Kenya";
+        let denied = engine
+            .research(ResearchRequest::new(query))
+            .await
+            .expect_err("live connector research must require plan approval");
+        assert!(
+            denied
+                .to_string()
+                .contains("public connector permission is required"),
+            "{denied}"
+        );
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            0,
+            "denied research must not call connector search"
+        );
+
+        let wrong_id = ResearchRequest {
+            approved_plan_id: Some("sha256:not-the-right-plan-fingerprint".into()),
+            ..ResearchRequest::new(query)
+        };
+        let wrong = engine
+            .research(wrong_id)
+            .await
+            .expect_err("wrong plan id must not authorize connectors");
+        assert!(
+            wrong
+                .to_string()
+                .contains("public connector permission is required"),
+            "{wrong}"
+        );
+        assert_eq!(counter.load(Ordering::SeqCst), 0);
+
+        let plan = engine.execution_plan(&ResearchRequest::new(query));
+        assert!(plan.permission_required);
+        assert!(plan.automatic_eligible);
+
+        let mut automatic = ResearchRequest::new(query);
+        automatic.automatic_public_web = true;
+        let automatic_report = engine
+            .research(automatic)
+            .await
+            .expect("automatic_public_web must clear the gate for eligible public plans");
+        assert!(
+            counter.load(Ordering::SeqCst) > 0,
+            "eligible automatic approval should reach connector search"
+        );
+        assert!(automatic_report
+            .run
+            .connectors_attempted
+            .iter()
+            .any(|name| name.contains("empty-counting")));
+        assert_eq!(automatic_report.query, query);
+
+        let mut exact = ResearchRequest::new(query);
+        exact.approved_plan_id = Some(plan.plan_id.clone());
+        let before_exact = counter.load(Ordering::SeqCst);
+        let exact_report = engine
+            .research(exact)
+            .await
+            .expect("matching approved_plan_id must clear the gate");
+        assert!(counter.load(Ordering::SeqCst) > before_exact);
+        assert_eq!(exact_report.query, query);
+    }
+
+    #[tokio::test]
+    async fn redacted_query_plan_id_must_match_post_redaction_plan() {
+        let engine = ResearchEngine {
+            config: EngineConfig {
+                network: true,
+                searxng_url: None,
+            },
+            sources: vec![Arc::new(EmptyCountingSource(Arc::new(AtomicUsize::new(0))))],
+        };
+        let original = "Research person@example.com population of Kenya";
+        let original_plan = engine.execution_plan(&ResearchRequest::new(original));
+        let privacy = assess_privacy(original);
+        assert!(privacy.requires_network_confirmation);
+        assert!(privacy.redacted_query_safe_to_send);
+        let redacted_plan = engine.execution_plan(&ResearchRequest::new(&privacy.redacted_query));
+        assert_ne!(
+            original_plan.plan_id, redacted_plan.plan_id,
+            "redaction must change the plan fingerprint"
+        );
+
+        let mut mismatched = ResearchRequest::new(original);
+        mismatched.redact_sensitive = true;
+        mismatched.approved_plan_id = Some(original_plan.plan_id);
+        let err = engine
+            .research(mismatched)
+            .await
+            .expect_err("plan id for the original query cannot authorize the redacted query");
+        assert!(
+            err.to_string()
+                .contains("public connector permission is required"),
+            "{err}"
+        );
+
+        let mut matched = ResearchRequest::new(original);
+        matched.redact_sensitive = true;
+        matched.approved_plan_id = Some(redacted_plan.plan_id);
+        engine
+            .research(matched)
+            .await
+            .expect("plan id computed on the redacted query must authorize redacted research");
+    }
+
+    struct EmptyCountingSource(Arc<AtomicUsize>);
+
+    #[async_trait::async_trait]
+    impl PublicSource for EmptyCountingSource {
+        fn name(&self) -> &'static str {
+            "empty-counting-test-source"
+        }
+
+        fn supports(&self, _: &ResearchPlan) -> bool {
+            true
+        }
+
+        fn disclosures(&self, _: &ResearchPlan) -> Vec<crate::permission::ConnectorDisclosure> {
+            vec![crate::permission::ConnectorDisclosure {
+                id: "empty-counting-test".into(),
+                service: "Empty counting test source".into(),
+                destinations: vec!["example.test".into()],
+                outbound_data: "the minimized public research query".into(),
+                purpose: "exercise plan permission gates in tests".into(),
+                risk: crate::permission::ConnectorRisk::PublicQuery,
+                automatic_eligible: true,
+            }]
+        }
+
+        async fn search(&self, _: &ResearchPlan, _: usize) -> Result<crate::model::SourceOutput> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(crate::model::SourceOutput {
+                connector: self.name().into(),
+                findings: Vec::new(),
+                metrics: Vec::new(),
+                sources: Vec::new(),
+                warnings: Vec::new(),
+                audit: crate::model::ConnectorAudit {
+                    attempted: vec![self.name().into()],
+                    succeeded: Vec::new(),
+                    errors: Vec::new(),
+                },
+            })
+        }
     }
 }
