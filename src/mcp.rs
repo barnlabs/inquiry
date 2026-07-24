@@ -168,7 +168,7 @@ async fn read_bounded_line<R: AsyncBufRead + Unpin>(
 
 fn tool_list() -> Value {
     let mut value = json!({"tools":[
-        {"name":"research","description":"Research a natural-language question using free public sources and return a provenance-preserving report. Sensitive live requests fail closed unless the local privacy check can safely redact them; an MCP caller cannot self-authorize sending sensitive originals.","inputSchema":{"type":"object","properties":{"query":{"type":"string","minLength":3,"maxLength":4000},"result_limit":{"type":"integer","minimum":1,"maximum":25},"redact_sensitive":{"type":"boolean","default":false}},"required":["query"],"additionalProperties":false}},
+        {"name":"research","description":"Research a natural-language question and return a provenance-preserving report. Offline catalog results require spawning the server as `inquiry mcp --offline` (there is no research.offline argument). Live connector research requires automatic_public_web for eligible public plans or approved_plan_id from a prior CLI/host plan inspection; an MCP caller still cannot self-authorize sensitive originals.","inputSchema":{"type":"object","properties":{"query":{"type":"string","minLength":3,"maxLength":4000},"result_limit":{"type":"integer","minimum":1,"maximum":25},"redact_sensitive":{"type":"boolean","default":false},"automatic_public_web":{"type":"boolean","default":false,"description":"Approve only engine-marked automatic-eligible public connector plans for this call. Sensitive and ineligible plans still fail closed."},"approved_plan_id":{"type":"string","minLength":8,"maxLength":200,"description":"Exact plan_id fingerprint from a reviewed execution plan for this query. Prefer CLI `inquiry plan` when the host cannot display the plan."}},"required":["query"],"additionalProperties":false}},
         {"name":"capabilities","description":"Return Inquiry's reviewed capability, coverage, limitation, and abstention matrix. Makes no network call.","inputSchema":{"type":"object","properties":{},"additionalProperties":false}},
         {"name":"airport_status","description":"Retrieve one three-letter U.S. airport's current traffic-management events from the FAA National Airspace System status feed. This is airport-level information, not individual flight status or navigation guidance.","inputSchema":{"type":"object","properties":{"airport":{"type":"string","pattern":"^[A-Za-z]{3}$"}},"required":["airport"],"additionalProperties":false}},
         {"name":"flight_status_handoff","description":"Normalize one exact carrier flight identifier and return the official airline status page without contacting the airline or claiming a flight state.","inputSchema":{"type":"object","properties":{"carrier":{"type":"string","enum":["american","delta","united","southwest","alaska","jetblue"]},"flight_identifier":{"type":"string","minLength":1,"maxLength":10},"date":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}},"required":["carrier","flight_identifier"],"additionalProperties":false}},
@@ -316,7 +316,21 @@ async fn execute_tool(
                 .get("redact_sensitive")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
+            // MCP never accepts confirm_sensitive_network; sensitive originals stay fail-closed.
             request.confirm_sensitive_network = false;
+            request.automatic_public_web = args
+                .get("automatic_public_web")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            if let Some(plan_id) = args.get("approved_plan_id").and_then(Value::as_str) {
+                let plan_id = plan_id.trim();
+                if plan_id.chars().count() < 8 || plan_id.chars().count() > 200 {
+                    return Err(invalid(
+                        "approved_plan_id must be 8 to 200 characters when provided",
+                    ));
+                }
+                request.approved_plan_id = Some(plan_id.to_string());
+            }
             serde_json::to_value(engine.research(request).await.map_err(internal)?)
                 .map_err(internal)?
         }

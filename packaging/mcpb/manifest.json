@@ -23,7 +23,7 @@
     }
   },
   "tools": [
-    { "name": "research", "description": "Research a natural-language question with free public sources and return a provenance-preserving report." },
+    { "name": "research", "description": "Research a natural-language question and return a provenance-preserving report. Offline catalog mode needs process flag mcp --offline; live connectors need automatic_public_web or approved_plan_id." },
     { "name": "capabilities", "description": "Return the reviewed coverage, limitation, outbound-data, and abstention matrix without networking." },
     { "name": "airport_status", "description": "Retrieve timestamped FAA airport-level traffic-management events; this is not individual flight status or navigation guidance." },
     { "name": "flight_status_handoff", "description": "Return a no-network handoff to one explicitly selected airline's official flight-status page without claiming a flight state." },

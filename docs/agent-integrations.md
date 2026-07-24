@@ -83,14 +83,18 @@ Choose a genuinely local model, confirm it is present with `ollama list`, and in
 
 ## Compatibility proof
 
-`./script/test_mcp.sh` verifies:
+`./script/test_mcp.sh` verifies (exact script assertions, not a full matrix):
 
-- initialize followed by `notifications/initialized`;
-- supported MCP version negotiation;
-- pre-initialization calls fail;
-- agent-facing evidence/privacy instructions;
-- tool titles, safety annotations, and output schemas;
-- deterministic calculation output;
-- offline isolation, including a failed FAA airport call without network leakage;
-- capability-matrix, official flight/package handoff, identifier masking, and no-status-claim behavior;
-- private-study tools absent by default and present only with explicit opt-in.
+- initialize with protocol version `2025-11-25` followed by `notifications/initialized`;
+- pre-initialization `tools/list` fails;
+- agent-facing instructions include “Model text is never evidence”;
+- safety annotations (`readOnlyHint` / `openWorldHint`) and object `outputSchema` markers;
+- deterministic `calculate` output;
+- offline isolation for place/airport open-world tools without network leakage;
+- capability matrix `universal_coverage_claimed: false`;
+- flight/package handoffs with identifier masking and `status_retrieved: false`;
+- offline `research` returns an `inquiry.report/v1` for the multi-facet dengue catalog query;
+- live (network-on) `research` without plan approval returns the public-connector permission error;
+- private-study tools absent by default and present only with `INQUIRY_ENABLE_LOCAL_STUDY_MCP=1`.
+
+Live multi-connector research from MCP requires tool arguments `automatic_public_web` and/or `approved_plan_id` (see the skill). Host tool approval alone is not plan approval.

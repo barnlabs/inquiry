@@ -16,9 +16,12 @@ RESPONSE="$(target/debug/inquiry mcp --offline <<'EOF'
 {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"airport_status","arguments":{"airport":"JFK"}}}
 {"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"flight_status_handoff","arguments":{"carrier":"american","flight_identifier":"AA123","date":"2026-07-18"}}}
 {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"package_tracking_handoff","arguments":{"carrier":"ups","tracking_identifier":"1Z999AA10123456784"}}}
+{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"research","arguments":{"query":"dengue disease transmission safety statistics"}}}
 EOF
 )"
 grep -q '"name":"research"' <<<"$RESPONSE"
+grep -q '"schema_version":"inquiry.report/v1"' <<<"$RESPONSE"
+grep -q 'dengue disease transmission safety statistics' <<<"$RESPONSE"
 grep -q '"name":"capabilities"' <<<"$RESPONSE"
 grep -q '"name":"airport_status"' <<<"$RESPONSE"
 grep -q '"name":"flight_status_handoff"' <<<"$RESPONSE"
@@ -72,4 +75,12 @@ EOF
 )"
 grep -q 'MCP session is not initialized' <<<"$PREINIT_RESPONSE"
 
-echo "MCP lifecycle, annotations, scoped connector handoffs, private-tool opt-in, calculation, and offline isolation passed"
+LIVE_GATE_RESPONSE="$(target/debug/inquiry mcp <<'EOF'
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"inquiry-test","version":"1"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"research","arguments":{"query":"Compare GDP and population for Kenya"}}}
+EOF
+)"
+grep -q 'public connector permission is required' <<<"$LIVE_GATE_RESPONSE"
+
+echo "MCP lifecycle, annotations, scoped connector handoffs, private-tool opt-in, calculation, offline research, and live plan gate passed"

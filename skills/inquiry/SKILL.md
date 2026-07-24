@@ -45,14 +45,24 @@ this repo for weight files or invent a model path.
 
 Project-scoped configs (repo root, release binary must exist):
 
-- Codex: `.codex/config.toml` → `./target/release/inquiry mcp`
-- Grok: `.grok/config.toml` → `./target/release/inquiry mcp`
+- Codex: `.codex/config.toml` → `./target/release/inquiry mcp` (**network on** by default)
+- Grok: `.grok/config.toml` → `./target/release/inquiry mcp` (**network on** by default)
 
 Prefer an **absolute** binary path outside this checkout. Relative configs only
 work when the host's cwd is the repository root and `cargo build --release`
 has already succeeded. Full host notes: `docs/agent-integrations.md`.
 
-### Quick agent smoke (offline)
+### MCP process modes (critical)
+
+| Mode | Spawn | `research` behavior |
+| --- | --- | --- |
+| **Default project config** | `inquiry mcp` | Network **on**. Connector queries need `automatic_public_web: true` (eligible plans only) or `approved_plan_id` from a reviewed plan. Sensitive originals still fail closed. |
+| **Offline agent sandbox** | `inquiry mcp --offline` | Catalog/local tools only. Open-world connectors fail closed. **No** `research.offline` tool argument — process flag only. |
+
+Host tool-call approval is **not** the same as Inquiry plan approval. Pass the
+plan fields explicitly on live `research`.
+
+### Quick agent smoke
 
 ```bash
 cargo build --release --locked
@@ -69,11 +79,17 @@ cargo build --release --locked
    jurisdiction, edition, time range, and needed facets when they matter.
 2. Call `capabilities` (or `inquiry capabilities`) when unsure what is supported.
 3. Prefer `privacy_check` / `inquiry privacy-check` before live research.
-4. Start with `research`. Prefer `offline` / CLI `--offline` for sensitive
-   planning; live mode sends query material to named public connectors.
-5. For live network runs via CLI, use `inquiry plan` then `--approved-plan` or
-   explicit `--automatic-public-web` only for low-risk public plans. MCP live
-   research cannot self-authorize sensitive originals (fail closed / redaction).
+4. Choose surface and network mode deliberately:
+   - Sensitive planning → CLI `inquiry research … --offline` or MCP process
+     `inquiry mcp --offline` (catalog only). There is **no** research tool arg
+     named `offline`.
+   - Live connectors → CLI `inquiry plan` then `--approved-plan <id>` or
+     eligible `--automatic-public-web`; **or** MCP `research` with
+     `automatic_public_web: true` and/or `approved_plan_id` matching that plan.
+   - MCP still **cannot** set `confirm_sensitive_network`; sensitive originals
+     fail closed (redact or use CLI with explicit review).
+5. Start with offline catalog research when possible, then escalate to live with
+   an inspected plan. Live mode sends query material to named public connectors.
 6. Inspect candidate identity before aggregating. A plausible name match is not
    enough; require corroborating address/coordinates, identifier,
    issuer/manufacturer, or other distinguishing evidence.
@@ -123,8 +139,8 @@ cargo build --release --locked
 | --- | --- | --- |
 | `capabilities` | `inquiry capabilities` | No network |
 | `privacy_check` | `inquiry privacy-check` | No network |
-| `research` | `inquiry research …` | Prefer `--offline` first; CLI has plan approval flags MCP lacks |
-| — | `inquiry plan` | Local execution plan + plan_id fingerprint |
+| `research` | `inquiry research …` | Offline = process/CLI flag only. Live MCP needs `automatic_public_web` and/or `approved_plan_id` |
+| — | `inquiry plan` | Local execution plan + plan_id fingerprint (feed to MCP/CLI approval) |
 | — | `inquiry live-events` | Bounded NASA EONET; needs plan approval |
 | `airport_status` | `inquiry airport-status` | 3-letter U.S. airport |
 | `flight_status_handoff` | `inquiry flight-status` | Handoff only |
@@ -135,16 +151,16 @@ cargo build --release --locked
 | `statistics` | `inquiry stats` | Documented conventions |
 | `differentiate` | `inquiry differentiate` | Numerical derivative |
 | `integrate` | `inquiry integrate` | Simpson's rule |
-| `graph` | `inquiry graph` | Self-contained HTML/SVG under reports |
+| `graph` | `inquiry graph` | MCP requires `filename` matching simple `*.html` under reports |
 | `formula` | `inquiry formula` | Reviewed formulas only |
 | `medication_evidence` | `inquiry medication-evidence` | Labels, not clinical verdicts |
 | `resolve_place` | `inquiry resolve-place` | OSM candidates |
-| `render_report` | `inquiry render-report` | stdin JSON → HTML |
-| `study_pack` | `inquiry study-pack` | Public-report cards only |
+| `render_report` | `inquiry render-report` | MCP needs `report` object + `filename`; CLI uses stdin JSON |
+| `study_pack` | `inquiry study-pack` | MCP needs `report` + `filename_base`; public-report only |
 | — | `inquiry study-index` | Private folder index (human path) |
-| `study_search` | `inquiry study-search` | MCP opt-in only |
-| `study_local_pack` | `inquiry study-local-pack` | MCP opt-in only |
-| `render_timeline` | `inquiry render-timeline` | stdin timeline JSON |
+| `study_search` | `inquiry study-search` | MCP opt-in only; index must be `reports/*-study-index.json` (not arbitrary path) |
+| `study_local_pack` | `inquiry study-local-pack` | MCP opt-in only; same confined reports path; host receives excerpts |
+| `render_timeline` | `inquiry render-timeline` | MCP needs `timeline` + `filename`; CLI uses stdin JSON |
 | — | `inquiry mcp` | Start stdio MCP server |
 | — | `inquiry demo` | Offline sample report |
 
@@ -164,8 +180,16 @@ cargo build --release --locked
 ./target/release/inquiry privacy-check "query text here"
 ./target/release/inquiry plan "Compare GDP and population for Kenya"
 
-# MCP offline process (host usually spawns this)
+# Offline MCP sandbox (explicit process flag — not the project default config)
 ./target/release/inquiry mcp --offline
+
+# Live MCP research after human/host review of an eligible public plan
+# (default configs spawn network-on `mcp` without --offline)
+# tools/call research {
+#   "query": "Compare GDP and population for Kenya",
+#   "automatic_public_web": true
+# }
+# or pass "approved_plan_id" from `inquiry plan "…"`.
 ```
 
 ## Presentation template
