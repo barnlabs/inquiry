@@ -87,7 +87,11 @@ cargo build --release --locked
      eligible `--automatic-public-web`; **or** MCP `research` with
      `automatic_public_web: true` and/or `approved_plan_id` matching that plan.
    - MCP still **cannot** set `confirm_sensitive_network`; sensitive originals
-     fail closed (redact or use CLI with explicit review).
+     fail closed. If you use `redact_sensitive: true`, the plan fingerprint is
+     computed **after** redaction — run `privacy_check`, plan the **redacted**
+     query string, then call `research` with the original query +
+     `redact_sensitive: true` + that redacted plan’s `approved_plan_id`. A plan
+     id taken from the unredacted original will not authorize the redacted run.
 5. Start with offline catalog research when possible, then escalate to live with
    an inspected plan. Live mode sends query material to named public connectors.
 6. Inspect candidate identity before aggregating. A plausible name match is not

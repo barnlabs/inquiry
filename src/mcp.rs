@@ -776,6 +776,68 @@ mod tests {
         assert!(result.get("structuredContent").is_none());
     }
 
+    #[test]
+    fn research_tool_schema_advertises_plan_approval_fields() {
+        let listed = tool_list();
+        let research = listed["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|tool| tool["name"] == "research")
+            .expect("research tool");
+        let properties = &research["inputSchema"]["properties"];
+        assert!(properties.get("automatic_public_web").is_some());
+        assert!(properties.get("approved_plan_id").is_some());
+        assert!(properties.get("offline").is_none());
+        assert!(properties.get("confirm_sensitive_network").is_none());
+    }
+
+    #[tokio::test]
+    async fn mcp_research_plan_gate_and_forced_sensitive_confirm() {
+        let engine = ResearchEngine::new(EngineConfig {
+            network: true,
+            searxng_url: None,
+        })
+        .unwrap();
+        let denied = call_tool(
+            &engine,
+            true,
+            json!({"name":"research","arguments":{"query":"Compare GDP and population for Kenya"}}),
+        )
+        .await;
+        assert_eq!(denied.get("isError").and_then(Value::as_bool), Some(true));
+        let denied_text = denied["content"][0]["text"].as_str().unwrap_or("");
+        assert!(
+            denied_text.contains("public connector permission is required"),
+            "{denied_text}"
+        );
+
+        // Unknown confirm_sensitive_network must not authorize; only plan fields do.
+        // (Schema marks additionalProperties false for hosts; runtime still ignores the key.)
+        let still_denied = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query":"Compare GDP and population for Kenya",
+                    "confirm_sensitive_network": true
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            still_denied.get("isError").and_then(Value::as_bool),
+            Some(true),
+            "{still_denied}"
+        );
+        let still_text = still_denied["content"][0]["text"].as_str().unwrap_or("");
+        assert!(
+            still_text.contains("public connector permission is required"),
+            "{still_text}"
+        );
+    }
+
     #[tokio::test]
     async fn bounded_line_reader_discards_oversized_messages_before_the_next_request() {
         let input = format!("{}\n{{\"jsonrpc\":\"2.0\"}}\n", "x".repeat(17));
