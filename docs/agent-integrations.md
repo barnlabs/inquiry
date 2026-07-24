@@ -97,4 +97,4 @@ Choose a genuinely local model, confirm it is present with `ollama list`, and in
 - live (network-on) `research` without plan approval returns the public-connector permission error;
 - private-study tools absent by default and present only with `INQUIRY_ENABLE_LOCAL_STUDY_MCP=1`.
 
-Live multi-connector research from MCP requires tool arguments `automatic_public_web` and/or `approved_plan_id` (see the skill). Host tool approval alone is not plan approval.
+Live multi-connector research from MCP requires tool arguments `automatic_public_web` and/or `approved_plan_id` (see the skill). Host tool approval alone is not plan approval. If you use `redact_sensitive`, the plan fingerprint is computed **after** redaction: run `privacy_check`, plan the **redacted** query string, then call `research` with the original query, `redact_sensitive: true`, and that redacted plan’s `approved_plan_id`.

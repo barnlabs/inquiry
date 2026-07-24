@@ -43,6 +43,11 @@ pub struct ResearchEngine {
 }
 
 impl ResearchEngine {
+    #[cfg(test)]
+    pub fn with_sources_for_test(config: EngineConfig, sources: Vec<Arc<dyn PublicSource>>) -> Self {
+        Self { config, sources }
+    }
+
     pub fn new(config: EngineConfig) -> Result<Self> {
         let client = default_client()?;
         let mut sources: Vec<Arc<dyn PublicSource>> = vec![

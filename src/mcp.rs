@@ -839,6 +839,121 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mcp_research_allow_path_wires_plan_fields_through_call_tool() {
+        use crate::model::{ConnectorAudit, ResearchPlan, SourceOutput};
+        use crate::permission::{ConnectorDisclosure, ConnectorRisk};
+        use crate::sources::PublicSource;
+        use async_trait::async_trait;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct GateSource(Arc<AtomicUsize>);
+
+        #[async_trait]
+        impl PublicSource for GateSource {
+            fn name(&self) -> &'static str {
+                "mcp-gate-test-source"
+            }
+            fn supports(&self, _: &ResearchPlan) -> bool {
+                true
+            }
+            fn disclosures(&self, _: &ResearchPlan) -> Vec<ConnectorDisclosure> {
+                vec![ConnectorDisclosure {
+                    id: "mcp-gate-test".into(),
+                    service: "MCP gate test".into(),
+                    destinations: vec!["example.test".into()],
+                    outbound_data: "the minimized public research query".into(),
+                    purpose: "prove MCP research plan approval wiring".into(),
+                    risk: ConnectorRisk::PublicQuery,
+                    automatic_eligible: true,
+                }]
+            }
+            async fn search(&self, _: &ResearchPlan, _: usize) -> anyhow::Result<SourceOutput> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Ok(SourceOutput {
+                    connector: self.name().into(),
+                    findings: Vec::new(),
+                    metrics: Vec::new(),
+                    sources: Vec::new(),
+                    warnings: Vec::new(),
+                    audit: ConnectorAudit {
+                        attempted: vec![self.name().into()],
+                        succeeded: Vec::new(),
+                        errors: Vec::new(),
+                    },
+                })
+            }
+        }
+
+        let searches = Arc::new(AtomicUsize::new(0));
+        let engine = ResearchEngine::with_sources_for_test(
+            EngineConfig {
+                network: true,
+                searxng_url: None,
+            },
+            vec![Arc::new(GateSource(searches.clone()))],
+        );
+        let query = "Compare GDP and population for Kenya";
+
+        let wrong = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query": query,
+                    "approved_plan_id": "sha256:definitely-wrong-plan-id-value"
+                }
+            }),
+        )
+        .await;
+        assert_eq!(wrong.get("isError").and_then(Value::as_bool), Some(true));
+        assert_eq!(searches.load(Ordering::SeqCst), 0);
+
+        let automatic = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query": query,
+                    "automatic_public_web": true
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            automatic.get("isError").and_then(Value::as_bool),
+            Some(false),
+            "{automatic}"
+        );
+        assert!(searches.load(Ordering::SeqCst) > 0);
+        assert_eq!(
+            automatic["structuredContent"]["schema_version"].as_str(),
+            Some("inquiry.report/v1")
+        );
+
+        let plan_id = engine
+            .execution_plan(&crate::model::ResearchRequest::new(query))
+            .plan_id;
+        let before = searches.load(Ordering::SeqCst);
+        let exact = call_tool(
+            &engine,
+            true,
+            json!({
+                "name":"research",
+                "arguments":{
+                    "query": query,
+                    "approved_plan_id": plan_id
+                }
+            }),
+        )
+        .await;
+        assert_eq!(exact.get("isError").and_then(Value::as_bool), Some(false), "{exact}");
+        assert!(searches.load(Ordering::SeqCst) > before);
+    }
+
+    #[tokio::test]
     async fn bounded_line_reader_discards_oversized_messages_before_the_next_request() {
         let input = format!("{}\n{{\"jsonrpc\":\"2.0\"}}\n", "x".repeat(17));
         let mut reader = BufReader::new(input.as_bytes());
