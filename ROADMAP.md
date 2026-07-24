@@ -14,7 +14,7 @@ This roadmap separates shipped behavior from research directions. It is not a pr
 
 - isolate PDF and Office parsing out of process with wall-clock and memory ceilings;
 - fuzz high-risk parsers and report/timeline deserialization;
-- close the narrow local reports-directory substitution race with handle-relative operations;
+- MCP `reports/` directory substitution race closed with dirfd + `openat` (CLI path-based writers and broader untrusted-file isolation remain separate);
 - add Universal macOS builds, `.icns`/asset catalog, Developer ID signing, notarization, checksums, SBOM, and reproducible release automation;
 - expand device/accessibility QA and relevance evaluation with independent reviewers.
 

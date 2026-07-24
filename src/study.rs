@@ -1,5 +1,6 @@
 use crate::model::{Confidence, ContentTrust, ResearchReport, SourceQuality};
 use crate::report::validate_report;
+use crate::safe_dir::SafeDir;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -174,6 +175,41 @@ pub fn write(
         quizlet_tsv,
         markdown,
         json,
+    })
+}
+
+/// Write study-pack artifacts via handle-relative creates under a held directory FD.
+pub fn write_in_dir(pack: &StudyPack, directory: &SafeDir, prefix: &str) -> Result<StudyPackFiles> {
+    let prefix = safe_prefix(prefix)?;
+    let names = [
+        format!("{prefix}-anki.csv"),
+        format!("{prefix}-quizlet.tsv"),
+        format!("{prefix}.md"),
+        format!("{prefix}.json"),
+    ];
+    let contents = [
+        anki_csv_text(pack).into_bytes(),
+        quizlet_tsv_text(pack).into_bytes(),
+        markdown_text(pack).into_bytes(),
+        serde_json::to_vec_pretty(pack)?,
+    ];
+    let mut created = Vec::new();
+    for (name, content) in names.iter().zip(contents.iter()) {
+        match directory.write_new(name, content) {
+            Ok(path) => created.push(path),
+            Err(error) => {
+                for path in &created {
+                    let _ = std::fs::remove_file(path);
+                }
+                return Err(error);
+            }
+        }
+    }
+    Ok(StudyPackFiles {
+        anki_csv: created[0].clone(),
+        quizlet_tsv: created[1].clone(),
+        markdown: created[2].clone(),
+        json: created[3].clone(),
     })
 }
 
